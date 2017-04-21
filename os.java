@@ -13,7 +13,7 @@ public class os{
   private static PCB IOJob;
   private static PCB drumJob;
 
-  private final int TIMESLICE = 1000; //TBD
+  private static final int TIMESLICE = 1000; //TBD
 
   public static void startup(){
     jobTable = new ArrayList<PCB>();
@@ -28,7 +28,7 @@ public class os{
     if (jobTable.size() >= 50){
       return;   // return??????
     }
-    BookKeeping();
+    BookKeeping(p[5]);
 
     PCB newJob = new PCB(p);
     // TODO: placed in memory???
@@ -41,7 +41,7 @@ public class os{
   }
 
   public static void Dskint(int a[], int p[]){
-    BookKeeping();
+    BookKeeping(p[5]);
     // Disk interrupt.
     // At call: p [5] = current time
     PCB job = diskQ.remove();
@@ -55,7 +55,7 @@ public class os{
   }
 
   public static void Drmint(int a[], int p[]){
-    BookKeeping();
+    BookKeeping(p[5]);
     // Drum interrupt.
     // At call: p [5] = current time
 
@@ -65,7 +65,7 @@ public class os{
   }
 
   public static void Tro(int a[], int p[]){
-    BookKeeping();
+    BookKeeping(p[5]);
     // Timer-Run-Out.
     // At call: p [5] = current time
 
@@ -75,7 +75,7 @@ public class os{
   }
 
   public static void Svc(int a[], int p[]){
-    BookKeeping();
+    BookKeeping(p[5]);
     // Supervisor call from user program.
     // At call: p [5] = current time
     // a = 5 => job has terminated
