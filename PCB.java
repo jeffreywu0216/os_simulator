@@ -26,6 +26,13 @@ public class PCB{
     timeUsed = timeUsed + (time - processStartTime);
   }
 
+  public boolean isDone(){
+    if(maxCpuTime - timeUsed <= 0){
+      return true;
+    }
+    return false;
+  }
+
   public int getJobNumber() {
     return jobNumber;
   }
