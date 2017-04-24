@@ -16,7 +16,7 @@ public class os{
   private static PCB IOJob;
   private static PCB drumJob;
 
-  private static final int TIMESLICE = 1000;
+  private static final int TIMESLICE = 10;
   private static final int MAX_MEMORY_SIZE = 100;
   private static final int MAX_JOB_NUM = 50;
 
@@ -24,7 +24,7 @@ public class os{
     jobTable = new ArrayList<PCB>();
 
     freeSpaceTable = new ArrayList<FreeSpaceTable>();
-    FreeSpaceTable initTable = new FreeSpaceTable(MAX_MEMORY_SIZE, 1);
+    FreeSpaceTable initTable = new FreeSpaceTable(MAX_MEMORY_SIZE, 0);
     freeSpaceTable.add(initTable);
 
     readyQ = new LinkedList<PCB>();
@@ -65,17 +65,19 @@ public class os{
   public static void Dskint(int a[], int p[]){
     BookKeeping(p[5]);
 
-    IOJob.ioCountMinusOne();
-    if(IOJob.getIoCount() <= 0){
-      IOJob.setBlocked(false);
-    }
+    if(IOJob != null) {
+      IOJob.ioCountMinusOne();
+      if (IOJob.getIoCount() <= 0 && !IOJob.isBlocked()) {
+        IOJob.setBlocked(false);
+      }
 
-    if(!IOJob.isInCore()){    //if not in memory, move in momory
-      drumInQ.add(IOJob);
-    } else if(IOJob.getIoCount() == 0 && !IOJob.isBlocked()) {  //if not waiting for IO, add to readyQ
-      readyQ.add(IOJob);
+      if (!IOJob.isInCore()) {    //if not in memory, move in momory
+        drumInQ.add(IOJob);
+      } else if (IOJob.getIoCount() == 0 && !IOJob.isBlocked()) {  //if not waiting for IO, add to readyQ
+        readyQ.add(IOJob);
+      }
+      IOJob = null;
     }
-    IOJob = null;
     // Disk interrupt.
     // At call: p [5] = current time
 
@@ -215,21 +217,25 @@ public class os{
 
   public static int FSTInsertJob(int size){
     int returnAddress = 0;
-//    if(checkAvalibilityFST(size)){
-//      for(int i = 0; i < freeSpaceTable.size(); i++){
-//        if(freeSpaceTable.get(i).getSize() > size){
-//          returnAddress = freeSpaceTable.get(i).getAddress();
-//          freeSpaceTable.get(i).setSize(freeSpaceTable.get(i).getSize() - size);
-//          freeSpaceTable.get(i).setAddress(freeSpaceTable.get(i).getAddress() + size);
-//          break;
-//        } else if (freeSpaceTable.get(i).getSize() == size){
-//          returnAddress = freeSpaceTable.get(i).getAddress();
-//          freeSpaceTable.remove(i);
-//          break;
-//        }
-//      }
-//      sortFST();
-//    }
+    if(checkAvalibilityFST(size)){
+      for(int i = 0; i < freeSpaceTable.size(); i++){
+        if(freeSpaceTable.get(i).getSize() > size){
+          returnAddress = freeSpaceTable.get(i).getAddress();
+          freeSpaceTable.get(i).setSize(freeSpaceTable.get(i).getSize() - size);
+          if(freeSpaceTable.get(i).getAddress() == 0) {
+            freeSpaceTable.get(i).setAddress(freeSpaceTable.get(i).getAddress() + size - 1);
+          } else {
+            freeSpaceTable.get(i).setAddress(freeSpaceTable.get(i).getAddress() + size);
+          }
+          break;
+        } else if (freeSpaceTable.get(i).getSize() == size){
+          returnAddress = freeSpaceTable.get(i).getAddress();
+          freeSpaceTable.remove(i);
+          break;
+        }
+      }
+      sortFST();
+    }
     return returnAddress;
   }
 
@@ -247,7 +253,7 @@ public class os{
       changeFlag = false;
       for (int i = 0; i < freeSpaceTable.size(); i++) {
         int targetAddress = freeSpaceTable.get(i).getSize() + freeSpaceTable.get(i).getAddress();
-        if (freeSpaceTable.get(i).getAddress() == 1) {
+        if (freeSpaceTable.get(i).getAddress() == 0) {
           targetAddress -= 1;
         }
         for (int j = 0; j < freeSpaceTable.size(); j++) {
