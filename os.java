@@ -7,6 +7,7 @@ public class os{
   private static ArrayList<FreeSpaceTable> freeSpaceTable;
 
   private static LinkedList<PCB> readyQ;
+
   private static LinkedList<PCB> diskQ;
   private static LinkedList<PCB> drumInQ;
   private static LinkedList<PCB> drumOutQ;
@@ -16,9 +17,10 @@ public class os{
   private static PCB IOJob;
   private static PCB drumJob;
 
-  private static final int TIMESLICE = 10;
   private static final int MAX_MEMORY_SIZE = 100;
   private static final int MAX_JOB_NUM = 50;
+
+  private static int blockCount;
 
   public static void startup(){
     jobTable = new ArrayList<PCB>();
@@ -27,7 +29,8 @@ public class os{
     FreeSpaceTable initTable = new FreeSpaceTable(MAX_MEMORY_SIZE, 0);
     freeSpaceTable.add(initTable);
 
-    readyQ = new LinkedList<PCB>();
+    readyQ= new LinkedList<PCB>();
+
     diskQ = new LinkedList<PCB>();
     drumInQ = new LinkedList<PCB>();
     drumOutQ = new LinkedList<PCB>();
@@ -37,25 +40,18 @@ public class os{
     IOJob = null;
     drumJob = null;
 
-    sos.ontrace();
-    //sos.offtrace();
+    blockCount = 0;
+
+    //sos.ontrace();
+    sos.offtrace();
   }
 
   public static void Crint(int a[], int p[]){
-//    if (jobTable.size() >= MAX_JOB_NUM){
-//      return;   // return??????
-//    }
     BookKeeping(p[5]);
 
     PCB newJob = new PCB(p);
     jobTable.add(newJob);
-//    if(checkAvalibilityFST(p[3])){
-//      newJob.setCoreAddress(FSTInsertJob(p[3]));
-//      newJob.setInCore(true);
-//      readyQ.add(newJob);   //put on readyQ if in memory?
-//    } else {
     drumInQ.add(newJob);
-//    }
 
     Swapper();
     Scheduler(p[5]);
@@ -64,44 +60,63 @@ public class os{
 
   public static void Dskint(int a[], int p[]){
     BookKeeping(p[5]);
+    IOJob.ioCountMinusOne();
 
-    if(IOJob != null) {
-      IOJob.ioCountMinusOne();
-      if (IOJob.getIoCount() <= 0 && !IOJob.isBlocked()) {
+    diskQ.remove(IOJob);
+    if (IOJob.getIoCount() <= 0) {
+//      while(diskQ.contains(drumJob))
+//        diskQ.remove(drumJob);
+      if (IOJob.isTerminated()) {
+        terminate(IOJob);
+      } else if (IOJob.isBlocked()) {
         IOJob.setBlocked(false);
-      }
-
-      if (!IOJob.isInCore()) {    //if not in memory, move in momory
-        drumInQ.add(IOJob);
-      } else if (IOJob.getIoCount() == 0 && !IOJob.isBlocked()) {  //if not waiting for IO, add to readyQ
+        blockCount--;
+        readyQ.add(IOJob);
+      } else {
         readyQ.add(IOJob);
       }
-      IOJob = null;
     }
-    // Disk interrupt.
-    // At call: p [5] = current time
 
-    if(!diskQ.isEmpty()) {    //be in memory?
+    IOJob = null;
+
+    if(!diskQ.isEmpty() && IOJob == null) {
       for(int i = 0; i < diskQ.size(); i++) {
-        if(diskQ.get(i).isInCore()) {
-          IOJob = diskQ.remove(i);
-          IOJob.ioCountMinusOne();
+        if (diskQ.get(i).isInCore()){
+          IOJob = diskQ.get(i);
           sos.siodisk(IOJob.getJobNumber());
+          break;
+        }
+        else {
+          drumInQ.add(IOJob);
+          Swapper();
         }
       }
     }
 
-    Swapper();
     Scheduler(p[5]);
     RunJob(a, p);
   }
 
   public static void Drmint(int a[], int p[]){
     BookKeeping(p[5]);
-    readyQ.add(drumJob);
+    if (drumJob.isInOrOut()) {
+      while (drumInQ.contains(drumJob))
+        drumInQ.remove(drumJob);
+      drumJob.setInCore(true);
+      readyQ.add(drumJob);
+//      for(int i = 0; i < drumJob.getIoCount(); i++)
+//        diskQ.add(drumJob);
+    } else {
+      while (drumOutQ.contains(drumJob))
+        drumOutQ.remove(drumJob);
+//      while(diskQ.contains(drumJob))
+//        diskQ.remove(drumJob);
+      drumJob.setInCore(false);
+      FSTRemoveJob(drumJob.getJobSize(), drumJob.getCoreAddress());
+      drumInQ.add(drumJob);
+    }
+
     drumJob = null;
-    // Drum interrupt.
-    // At call: p [5] = current time
 
     Swapper();
     Scheduler(p[5]);
@@ -111,49 +126,77 @@ public class os{
   public static void Tro(int a[], int p[]){
     BookKeeping(p[5]);
 
-    if(lastJob.isDone()){       //can the job used up all time but sill waiting for IO?
-      terminate(lastJob);
+    if(lastJob.isDone()){
+      if(lastJob.getIoCount() > 0)
+        lastJob.setTerminated(true);
+      else
+        terminate(lastJob);
+    } else {
+      readyQ.add(lastJob);
     }
-    // Timer-Run-Out.
-    // At call: p [5] = current time
 
+    if(!diskQ.isEmpty() && IOJob == null) {
+      for(int i = 0; i < diskQ.size(); i++) {
+        if (diskQ.get(i).isInCore()){
+          IOJob = diskQ.get(i);
+          sos.siodisk(IOJob.getJobNumber());
+          break;
+        }
+        else {
+          drumInQ.add(IOJob);
+          Swapper();
+        }
+      }
+    }
 
-    Swapper();
     Scheduler(p[5]);
     RunJob(a, p);
   }
 
   public static void Svc(int a[], int p[]){
     BookKeeping(p[5]);
-    // Supervisor call from user program.
-    // At call: p [5] = current time
-    // a = 5 => job has terminated
-    // a = 6 => job requests disk i/o
-    // a = 7 => job wants to be blocked until all its pending
-    // I/O requests are completed
+
     if (a[0] == 5){
       terminate(lastJob);
     } else if (a[0] == 6){
       lastJob.ioCountPlusOne();
       diskQ.add(lastJob);
-      readyQ.remove(lastJob);
+      if(!diskQ.isEmpty() && IOJob == null) {
+        for(int i = 0; i < diskQ.size(); i++) {
+          if (diskQ.get(i).isInCore()) {
+            IOJob = diskQ.get(i);
+            sos.siodisk(IOJob.getJobNumber());
+            break;
+          } else{
+            drumInQ.add(IOJob);
+            Swapper();
+          }
+        }
+      }
     } else if (a[0] == 7){
-      if(lastJob.getIoCount() != 0) {
+      if(lastJob.getIoCount() > 0) {
         lastJob.setBlocked(true);
-        readyQ.remove(lastJob);
+        blockCount++;
+
+        if (lastJob != IOJob && blockCount > 1) {
+          lastJob.setInCore(false);
+          drumOutQ.add(lastJob);
+          Swapper();
+        }
+        while (readyQ.contains(lastJob))
+          readyQ.remove(lastJob);
       }
     }
 
-    Swapper();
     Scheduler(p[5]);
     RunJob(a, p);
   }
 
   public static void BookKeeping(int time){
-    //stop the job and put back to readyQ
     if (runningJob != null){
       runningJob.updateTimeUsed(time);
       readyQ.addFirst(runningJob);
+
       lastJob = runningJob;
       runningJob = null;
     }
@@ -163,10 +206,10 @@ public class os{
     //swap in
     if(drumJob == null && !drumInQ.isEmpty()){
       for(int i = 0; i < drumInQ.size(); i++){
-        if(checkAvalibilityFST(drumInQ.get(i).getJobSize())){
-          drumJob = drumInQ.remove(i);
+        if(drumInQ.get(i) != null && checkAvalibilityFST(drumInQ.get(i))){
+          drumJob = drumInQ.get(i);
           drumJob.setCoreAddress(FSTInsertJob(drumJob.getJobSize()));
-          drumJob.setInCore(true);
+          drumJob.setInOrOut(true);
           sos.siodrum(drumJob.getJobNumber(), drumJob.getJobSize(), drumJob.getCoreAddress(), 0);
           break;
         }
@@ -175,21 +218,18 @@ public class os{
     // swap out
     if(drumJob == null && !drumOutQ.isEmpty()){
       for(int i = 0; i < drumOutQ.size(); i++){
-        if(runningJob != drumOutQ.get(i)) {
-          drumJob = drumOutQ.remove(i);
-          FSTRemoveJob(drumJob.getJobSize(), drumJob.getCoreAddress());
-          drumJob.setInCore(false);
-          sos.siodrum(drumJob.getJobNumber(), drumJob.getJobSize(), drumJob.getCoreAddress(), 1);
-          break;
-        }
+        drumJob = drumOutQ.get(i);
+        drumJob.setInOrOut(false);
+        sos.siodrum(drumJob.getJobNumber(), drumJob.getJobSize(), drumJob.getCoreAddress(), 1);
+        break;
       }
     }
   }
 
-  //FCFS
+  //FCFS  TODO: set priority
   public static void Scheduler(int time) {
     for (int i = 0; i < readyQ.size(); i++) {
-      if (!readyQ.get(i).isBlocked() && !readyQ.isEmpty()) {
+      if (!readyQ.get(i).isBlocked() && !readyQ.isEmpty() && readyQ.get(i).isInCore() && !readyQ.get(i).isDone()) {
         runningJob = readyQ.remove(i);
         runningJob.setProcessStartTime(time);
         break;
@@ -202,40 +242,42 @@ public class os{
       a[0] = 2;
       p[2] = runningJob.getCoreAddress();
       p[3] = runningJob.getJobSize();
-      p[4] = TIMESLICE;
+      p[4] = runningJob.getMaxCpuTime() - runningJob.getTimeUsed();
     } else {
       a[0] = 1;
     }
   }
 
-  public static boolean checkAvalibilityFST(int size){
-    if(freeSpaceTable.get(freeSpaceTable.size() - 1).getSize() >= size){
-      return true;
+  public static boolean isBlockedQ(LinkedList<PCB> q){
+    for(int i = 0; i < q.size(); i++){
+      if(!q.get(i).isBlocked())
+        return false;
+    }
+    return true;
+  }
+
+  public static boolean checkAvalibilityFST(PCB job){
+    updateFST();
+    for(int i = 0; i < freeSpaceTable.size(); i++) {
+      if (freeSpaceTable.get(i).getSize()
+
+              >= job.getJobSize())
+        return true;
     }
     return false;
   }
 
   public static int FSTInsertJob(int size){
     int returnAddress = 0;
-    if(checkAvalibilityFST(size)){
       for(int i = 0; i < freeSpaceTable.size(); i++){
-        if(freeSpaceTable.get(i).getSize() > size){
+        if(freeSpaceTable.get(i).getSize() >= size) {
           returnAddress = freeSpaceTable.get(i).getAddress();
           freeSpaceTable.get(i).setSize(freeSpaceTable.get(i).getSize() - size);
-          if(freeSpaceTable.get(i).getAddress() == 0) {
-            freeSpaceTable.get(i).setAddress(freeSpaceTable.get(i).getAddress() + size - 1);
-          } else {
-            freeSpaceTable.get(i).setAddress(freeSpaceTable.get(i).getAddress() + size);
-          }
-          break;
-        } else if (freeSpaceTable.get(i).getSize() == size){
-          returnAddress = freeSpaceTable.get(i).getAddress();
-          freeSpaceTable.remove(i);
+          freeSpaceTable.get(i).setAddress(freeSpaceTable.get(i).getAddress() + size);
           break;
         }
       }
-      sortFST();
-    }
+      updateFST();
     return returnAddress;
   }
 
@@ -244,18 +286,23 @@ public class os{
     freeSpaceTable.add(releaseFST);
 
     updateFST();
-    sortFST();
   }
 
   public static void updateFST(){
+    int k = 0;
+    while (k < freeSpaceTable.size()){
+      if(freeSpaceTable.get(k).getSize() == 0){
+        freeSpaceTable.remove(k);
+        k--;
+      }
+      k++;
+    }
+
     boolean changeFlag = true;
     while(changeFlag) {
       changeFlag = false;
       for (int i = 0; i < freeSpaceTable.size(); i++) {
         int targetAddress = freeSpaceTable.get(i).getSize() + freeSpaceTable.get(i).getAddress();
-        if (freeSpaceTable.get(i).getAddress() == 0) {
-          targetAddress -= 1;
-        }
         for (int j = 0; j < freeSpaceTable.size(); j++) {
           if(freeSpaceTable.get(j).getAddress() == targetAddress){
             freeSpaceTable.get(i).setSize(freeSpaceTable.get(i).getSize() + freeSpaceTable.get(j).getSize());
@@ -273,17 +320,33 @@ public class os{
   public static void sortFST(){
     for (int i = freeSpaceTable.size() - 1; i >= 1; i--){
       if(freeSpaceTable.get(i).getSize() < freeSpaceTable.get(i - 1).getSize()){
-        freeSpaceTable.add(i + 1, freeSpaceTable.get(i - 1));
-        freeSpaceTable.remove(i - 1);
+        FreeSpaceTable temp = freeSpaceTable.get(i);
+        freeSpaceTable.set(i, freeSpaceTable.get(i - 1));
+        freeSpaceTable.set(i - 1, temp);
       }
     }
   }
 
   public static void terminate(PCB job){
-    readyQ.remove(job);
-    jobTable.remove(job);
-    if(job.isInCore()) {
-      drumOutQ.add(job);
+    while (readyQ.contains(job))
+      readyQ.remove(job);
+    if(job.getIoCount() > 0){
+      job.setTerminated(true);
+    } else {
+      job.setInCore(false);
+      while (jobTable.contains(job))
+        jobTable.remove(job);
+      while (drumOutQ.contains(job))
+        drumOutQ.remove(job);
+      while (drumInQ.contains(job))
+        drumInQ.remove(job);
+      FSTRemoveJob(job.getJobSize(), job.getCoreAddress());
+    }
+  }
+
+  public static void printFST(){
+    for(int i = 0; i < freeSpaceTable.size(); i++){
+      System.out.println("----------------------------Size: " + freeSpaceTable.get(i).getSize() + ", Address:" + freeSpaceTable.get(i).getAddress());
     }
   }
 }

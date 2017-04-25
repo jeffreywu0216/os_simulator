@@ -11,7 +11,8 @@ public class PCB{
   private int coreAddress;
   private int ioCount;
 
-  //private boolean isIO;
+  private boolean inOrOut;
+  private boolean isTerminated;
   private boolean isBlocked;
   private boolean inCore;
 
@@ -139,5 +140,21 @@ public class PCB{
 
   public void ioCountMinusOne() {
     this.ioCount--;
+  }
+
+  public boolean isTerminated() {
+    return isTerminated;
+  }
+
+  public void setTerminated(boolean terminated) {
+    isTerminated = terminated;
+  }
+
+  public boolean isInOrOut() {
+    return inOrOut;
+  }
+
+  public void setInOrOut(boolean inOrOut) {
+    this.inOrOut = inOrOut;
   }
 }
