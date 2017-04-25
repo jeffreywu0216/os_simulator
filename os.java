@@ -179,6 +179,15 @@ public class os{
   }
 
   public static void Swapper(){
+    // swap out
+    if(drumJob == null && !drumOutQ.isEmpty()){
+      for(int i = 0; i < drumOutQ.size(); i++){
+        drumJob = drumOutQ.get(i);
+        drumJob.setInOrOut(false);
+        sos.siodrum(drumJob.getJobNumber(), drumJob.getJobSize(), drumJob.getCoreAddress(), 1);
+        break;
+      }
+    }
     //swap in
     if(drumJob == null && !drumInQ.isEmpty()){
       PCB temp = null;
@@ -186,7 +195,7 @@ public class os{
         if(drumInQ.get(i) != null && checkAvalibilityFST(drumInQ.get(i))){
           if(temp == null)
             temp = drumInQ.get(i);
-          else if(temp.getPriority() >= drumInQ.get(i).getPriority() && temp.remainTime() > drumInQ.get(i).remainTime())
+          else if(temp.getPriority() >= drumInQ.get(i).getPriority() && temp.remainTime() > drumInQ.get(i).remainTime() && !drumInQ.get(i).isBlocked())
             temp = drumInQ.get(i);
         }
       }
@@ -195,15 +204,6 @@ public class os{
         drumJob.setCoreAddress(FSTInsertJob(drumJob.getJobSize()));
         drumJob.setInOrOut(true);
         sos.siodrum(drumJob.getJobNumber(), drumJob.getJobSize(), drumJob.getCoreAddress(), 0);
-      }
-    }
-    // swap out
-    if(drumJob == null && !drumOutQ.isEmpty()){
-      for(int i = 0; i < drumOutQ.size(); i++){
-        drumJob = drumOutQ.get(i);
-        drumJob.setInOrOut(false);
-        sos.siodrum(drumJob.getJobNumber(), drumJob.getJobSize(), drumJob.getCoreAddress(), 1);
-        break;
       }
     }
   }
