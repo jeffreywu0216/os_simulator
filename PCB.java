@@ -10,6 +10,7 @@ public class PCB{
   private int timeUsed;
   private int coreAddress;
   private int ioCount;
+  private int nextUpgradePriorityTime;
 
   private boolean inOrOut;
   private boolean isTerminated;
@@ -25,6 +26,7 @@ public class PCB{
 
     this.timeUsed = 0;
     this.ioCount = 0;
+    this.nextUpgradePriorityTime = this.currentTime + 100000;
 
     //this.isIO = false;
     this.isBlocked = false;
@@ -40,6 +42,10 @@ public class PCB{
       return true;
     }
     return false;
+  }
+
+  public int remainTime(){
+    return maxCpuTime - timeUsed;
   }
 
   public int getJobNumber() {
@@ -156,5 +162,13 @@ public class PCB{
 
   public void setInOrOut(boolean inOrOut) {
     this.inOrOut = inOrOut;
+  }
+
+  public int getNextUpgradePriorityTime() {
+    return nextUpgradePriorityTime;
+  }
+
+  public void setNextUpgradePriorityTime(int nextUpgradePriorityTime) {
+    this.nextUpgradePriorityTime = nextUpgradePriorityTime;
   }
 }
