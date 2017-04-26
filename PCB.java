@@ -28,7 +28,6 @@ public class PCB{
     this.ioCount = 0;
     this.nextUpgradePriorityTime = this.currentTime + 100000;
 
-    //this.isIO = false;
     this.isBlocked = false;
     this.inCore = false;
   }
@@ -38,10 +37,7 @@ public class PCB{
   }
 
   public boolean isDone(){
-    if(maxCpuTime - timeUsed <= 0){
-      return true;
-    }
-    return false;
+    return (maxCpuTime - timeUsed <= 0) ? true : false;
   }
 
   public int remainTime(){
@@ -112,14 +108,6 @@ public class PCB{
     this.coreAddress = coreAddress;
   }
 
-//  public boolean isIO() {
-//    return isIO;
-//  }
-//
-//  public void setIO(boolean IO) {
-//    isIO = IO;
-//  }
-
   public boolean isBlocked() {
     return isBlocked;
   }
@@ -138,6 +126,10 @@ public class PCB{
 
   public int getIoCount() {
     return ioCount;
+  }
+
+  public void setIoCount(int ioCount) {
+    this.ioCount = ioCount;
   }
 
   public void ioCountPlusOne() {

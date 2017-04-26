@@ -1,5 +1,5 @@
 import java.util.LinkedList;
-//best fit
+
 public class FreeSpaceTable{
 
   private int size;
