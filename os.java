@@ -248,6 +248,9 @@ public class os{
   }
 
   public static boolean checkAvalibilityFST(PCB job){
+    if(freeSpaceTable.isEmpty())
+      return false;
+
     for(int i = 0; i < freeSpaceTable.size(); i++) {
       if (freeSpaceTable.get(i).getSize() >= job.getJobSize())
         return true;
