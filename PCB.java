@@ -10,10 +10,10 @@ public class PCB{
   private int timeUsed;
   private int coreAddress;
   private int ioCount;
-  private int nextUpgradePriorityTime;
+  private int nextUpgradePriorityTime;  //upgrage prioriity if pass is in over 100000
 
-  private boolean inOrOut;
-  private boolean isTerminated;
+  private boolean inOrOut;              //tells drumInt weather the job is swaping in or swaping out
+  private boolean isTerminated;         //is true if job is terminated but io pending
   private boolean isBlocked;
   private boolean inCore;
 
@@ -26,20 +26,21 @@ public class PCB{
 
     this.timeUsed = 0;
     this.ioCount = 0;
-    this.nextUpgradePriorityTime = this.currentTime + 100000;
+    this.nextUpgradePriorityTime = this.currentTime + 100000; //upgrage prioriity if pass is in over 100000
 
     this.isBlocked = false;
     this.inCore = false;
   }
 
+  //updateing the time used for the job
   public void updateTimeUsed(int time){
     timeUsed = timeUsed + (time - processStartTime);
   }
-
+  //check weather the job is done
   public boolean isDone(){
     return (maxCpuTime - timeUsed <= 0) ? true : false;
   }
-
+  //returns the remaining time for the job
   public int remainTime(){
     return maxCpuTime - timeUsed;
   }
@@ -87,7 +88,7 @@ public class PCB{
   public int getProcessStartTime() {
     return processStartTime;
   }
-
+  //set the processStartTime to current time whenever a job start running on CPU
   public void setProcessStartTime(int processStartTime) {
     this.processStartTime = processStartTime;
   }
@@ -131,11 +132,11 @@ public class PCB{
   public void setIoCount(int ioCount) {
     this.ioCount = ioCount;
   }
-
+  // add one to ioCount
   public void ioCountPlusOne() {
     this.ioCount++;
   }
-
+  // minus one to ioCount
   public void ioCountMinusOne() {
     this.ioCount--;
   }
@@ -147,7 +148,7 @@ public class PCB{
   public void setTerminated(boolean terminated) {
     isTerminated = terminated;
   }
-
+  //return true if job just swap in, false if swap out
   public boolean isInOrOut() {
     return inOrOut;
   }
@@ -159,7 +160,7 @@ public class PCB{
   public int getNextUpgradePriorityTime() {
     return nextUpgradePriorityTime;
   }
-
+  //reset time after upgrading the job
   public void setNextUpgradePriorityTime(int nextUpgradePriorityTime) {
     this.nextUpgradePriorityTime = nextUpgradePriorityTime;
   }
